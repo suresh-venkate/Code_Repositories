@@ -41,7 +41,7 @@ std_colors = [
 # In[ ]:
 
 
-def draw_boxes_and_labels(img_pil, scores, boxes, class_ind, ind_label_dict,                          score_threshold = 0.4, norm_coords = True, box_thickness = 4):
+def draw_boxes_and_labels(img_pil, scores, boxes, class_ind, ind_label_dict, score_threshold = 0.4, norm_coords = True, box_thickness = 4, font_size = 24):
     
     # Define font to use for displaying text
     try:

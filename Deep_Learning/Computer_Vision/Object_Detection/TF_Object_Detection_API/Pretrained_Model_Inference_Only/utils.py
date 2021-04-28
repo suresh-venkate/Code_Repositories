@@ -45,7 +45,7 @@ def draw_boxes_and_labels(img_pil, scores, boxes, class_ind, ind_label_dict, sco
     
     # Define font to use for displaying text
     try:
-        font = ImageFont.truetype('arial.ttf', 24)
+        font = ImageFont.truetype('arial.ttf', font_size)
     except IOError:
         font = ImageFont.load_default()
 

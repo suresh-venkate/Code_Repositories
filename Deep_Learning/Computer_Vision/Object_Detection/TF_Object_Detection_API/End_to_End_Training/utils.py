@@ -61,7 +61,7 @@ def draw_boxes_and_labels(img_pil, scores, boxes, class_ind, ind_label_dict, sco
         # Extract bbox co-ords of current box
         box = boxes[box_ind] 
         # Extract class label of current box
-        class_lab = ind_label_dict[class_ind[box_ind]]['name']
+        class_lab = ind_label_dict[class_ind[box_ind]]
         # Generate text label for current box
         text_label = '{}: {:0.0f}%'.format(class_lab, (100 * score))
         # Define color to use for BBOX and text box

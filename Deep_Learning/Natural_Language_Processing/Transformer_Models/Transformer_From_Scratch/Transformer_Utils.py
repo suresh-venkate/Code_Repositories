@@ -63,23 +63,15 @@ class AddAndNorm(nn.Module):
   def forward(self, x, sublayer):
     return self.norm(x + sublayer(x))
 
-
-
-
-
-
-
-
-
-    def clones(module, N):
-    """
-    Produce N identical layers of module
-    Arguments:
-      module: module to be cloned
-      N: Number of time the module will be cloned
-    Returns:
-      Cloned module
-    """
-    cloned_module = nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
-    return cloned_module
-
+### Function: clones
+def clones(module, N):
+"""
+Produce N identical layers of module
+Arguments:
+  module: module to be cloned
+  N: Number of time the module will be cloned
+Returns:
+  Cloned module
+"""
+cloned_module = nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
+return cloned_module

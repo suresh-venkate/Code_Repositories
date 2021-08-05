@@ -197,7 +197,7 @@ class AddAndNorm(nn.Module):
 class EncoderLayer(nn.Module):
   """
   Single Encoder Unit comprising of a multi-head-attention unit with add_and_norm followed by
-  a position-wise-feed-forward-network with add_and_norm (Ref: Section 3.1, Encoder)
+  a position-wise-feed-forward-network with add_and_norm (Ref: Section 3.1, Encoder, Fig.1 left side)
   """
   def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout):
     """
@@ -205,7 +205,7 @@ class EncoderLayer(nn.Module):
       d_model: Size of input embeddings    
       h: Number of parallel attention layers (heads)
       attn_dropout: dropout value to use in MHA module
-      d_ff: Dimension of hidden layer
+      d_ff: Dimension of hidden layer in position wise feedforward layer
       pwff_dropout: Dropout value to use for position wise feedforward layers
     """
     super(EncoderLayer, self).__init__()
@@ -245,4 +245,60 @@ class Encoder(nn.Module):
       x = layer(x, mask)
     return x
 
+### Class: DecoderLayer
+class DecoderLayer(nn.Module):
+  """
+  Single Decoder Unit comprising of two multi-head-attention units with add_and_norm followed by
+  a position-wise-feed-forward-network with add_and_norm (Ref: Section 3.1, Decoder, Fig.1 right side)
+  """
+  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout):
+    """
+    Arguments:
+      d_model: Size of input embeddings    
+      h: Number of parallel attention layers (heads)
+      attn_dropout: dropout value to use in MHA module
+      d_ff: Dimension of hidden layer in position wise feedforward layer
+      pwff_dropout: Dropout value to use for position wise feedforward layers
+    """    
+    super(DecoderLayer, self).__init__()
+    self.size = d_model
+    self.self_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
+    self.src_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
+    self.PWFFN = PositionwiseFeedForward(d_model, d_ff, pwff_dropout)
+    self.addandnorm_self_MHA = AddAndNorm(d_model)
+    self.addandnorm_src_MHA = AddAndNorm(d_model)
+    self.addandnorm_PWFFN = AddAndNorm(d_model)
+ 
+  def forward(self, x, memory, src_mask, tgt_mask):
+    m = memory
+    x = self.addandnorm_self_MHA(x, lambda x: self.self_MHA_unit(x, x, x, tgt_mask))
+    x = self.addandnorm_src_MHA(x, lambda x: self.src_MHA_unit(x, m, m, src_mask))      
+    x = self.addandnorm_PWFFN(x, self.PWFFN)
+    return x   
+
+### Class: Decoder
+class Decoder(nn.Module):
+  """
+  Decoder is a stack of N DecoderLayers
+  """
+  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout, N):
+    """
+    Arguments:
+      d_model: Size of input embeddings    
+      h: Number of parallel attention layers (heads)
+      attn_dropout: dropout value to use in MHA module
+      d_ff: Dimension of hidden layer
+      pwff_dropout: Dropout value to use for position wise feedforward layers    
+      N: Number of DecoderLayers in the Decoder stack
+    """
+    super(Decoder, self).__init__()
+    self.declayer = DecoderLayer(d_model, h, attn_dropout, d_ff, pwff_dropout)
+    self.declayer_stack = clones(self.declayer, N)
+    self.norm = nn.LayerNorm(d_model, eps = 1e-6)    
+        
+  def forward(self, x, memory, src_mask, tgt_mask):
+    x = self.norm(x)
+    for layer in self.declayer_stack:
+      x = layer(x, memory, src_mask, tgt_mask)
+    return x
 

@@ -159,7 +159,7 @@ class ScaledDotProductAttention(nn.Module):
     if attn_mask is not None: # Apply mask (optional)
       scores = scores.masked_fill(attn_mask == 0, -1e9)
     probs = self.softmax(scores) # Compute softmax
-    probs = attn_dropout(probs)
+    #probs = attn_dropout(probs)
     attn = torch.matmul(probs, V)
 
     return attn, probs
@@ -199,7 +199,7 @@ class MultiHeadedAttention(nn.Module):
         
         # 3) "Concat" using a view and apply a final linear. 
         x = x.transpose(1, 2).contiguous()              .view(nbatches, -1, self.h * self.d_k)
-        return self.linears[-1](x)
+        return self.dropout(self.linears[-1](x))
 
 
 class PositionwiseFeedForward(nn.Module):

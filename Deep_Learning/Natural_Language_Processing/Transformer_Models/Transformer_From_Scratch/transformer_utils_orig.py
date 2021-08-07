@@ -50,7 +50,8 @@ class Encoder(nn.Module):
     def __init__(self, layer, N):
         super(Encoder, self).__init__()
         self.layers = clones(layer, N)
-        self.norm = LayerNorm(layer.size)
+        #self.norm = LayerNorm(layer.size)
+        self.norm = nn.LayerNorm(layer.size, eps = 1e-6)
         
     def forward(self, x, mask):
         "Pass the input (and mask) through each layer in turn."
@@ -58,18 +59,18 @@ class Encoder(nn.Module):
             x = layer(x, mask)
         return self.norm(x)
 
-class LayerNorm(nn.Module):
-    "Construct a layernorm module (See citation for details)."
-    def __init__(self, features, eps=1e-6):
-        super(LayerNorm, self).__init__()
-        self.a_2 = nn.Parameter(torch.ones(features))
-        self.b_2 = nn.Parameter(torch.zeros(features))
-        self.eps = eps
+# class LayerNorm(nn.Module):
+    # "Construct a layernorm module (See citation for details)."
+    # def __init__(self, features, eps=1e-6):
+        # super(LayerNorm, self).__init__()
+        # self.a_2 = nn.Parameter(torch.ones(features))
+        # self.b_2 = nn.Parameter(torch.zeros(features))
+        # self.eps = eps
 
-    def forward(self, x):
-        mean = x.mean(-1, keepdim=True)
-        std = x.std(-1, keepdim=True)
-        return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
+    # def forward(self, x):
+        # mean = x.mean(-1, keepdim=True)
+        # std = x.std(-1, keepdim=True)
+        # return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
 
 
 class SublayerConnection(nn.Module):
@@ -79,7 +80,8 @@ class SublayerConnection(nn.Module):
     """
     def __init__(self, size, dropout):
         super(SublayerConnection, self).__init__()
-        self.norm = LayerNorm(size)
+        #self.norm = LayerNorm(size)
+        self.norm = nn.LayerNorm(size, eps = 1e-6)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, sublayer):
@@ -106,7 +108,8 @@ class Decoder(nn.Module):
     def __init__(self, layer, N):
         super(Decoder, self).__init__()
         self.layers = clones(layer, N)
-        self.norm = LayerNorm(layer.size)
+        #self.norm = LayerNorm(layer.size)
+        self.norm = nn.LayerNorm(layer.size, eps = 1e-6)
         
     def forward(self, x, memory, src_mask, tgt_mask):
         for layer in self.layers:
@@ -129,13 +132,6 @@ class DecoderLayer(nn.Module):
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, tgt_mask))
         x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask))
         return self.sublayer[2](x, self.feed_forward)
-
-def subsequent_mask(size):
-    "Mask out subsequent positions."
-    attn_shape = (1, size, size)
-    subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')
-    return torch.from_numpy(subsequent_mask) == 0
-
 
 def attention(query, key, value, mask=None, dropout=None):
     "Compute 'Scaled Dot Product Attention'"

@@ -121,7 +121,7 @@ class MultiHeadAttention(nn.Module):
     self.wi_k = nn.Linear(d_model, d_model, bias = False)
     self.wi_v = nn.Linear(d_model, d_model, bias = False)
 
-    # Define SDPA layer
+    # Define SDPA fnorm
     self.attention = ScaledDotProductAttention(scaling = self.d_k ** 0.5)
 
     # Define final FC and dropout layers

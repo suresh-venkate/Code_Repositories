@@ -50,7 +50,6 @@ class PositionalEncoding(nn.Module):
       dropout: Dropout value to use at the output of this layer
       """
       super(PositionalEncoding, self).__init__()
-      #self.norm = nn.LayerNorm(d_model, eps = 1e-6)
       self.dropout = nn.Dropout(p = dropout)
       pe = torch.zeros(max_posns, d_model) # Placeholder to store pos. encodings
       posn_vec = torch.arange(0, max_posns).unsqueeze(1) # Position vector
@@ -347,7 +346,7 @@ class Generator(nn.Module):
     return self.smax(self.proj(x))
     
 ### Function: make_model
- def make_model(src_vocab, tgt_vocab, N=6, 
+def make_model(src_vocab, tgt_vocab, N=6, 
                d_model=512, d_ff=2048, h=8, dropout=0.1):
     "Helper: Construct a model from hyperparameters."
     c = copy.deepcopy

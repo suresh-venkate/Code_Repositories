@@ -302,3 +302,66 @@ class Decoder(nn.Module):
       x = layer(x, memory, src_mask, tgt_mask)
     return x
 
+### Class: EncoderDecoder
+class EncoderDecoder(nn.Module):
+    """
+    Overall Encode Decoder module
+    """
+    def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
+        super(EncoderDecoder, self).__init__()
+        self.encoder = encoder
+        self.decoder = decoder
+        self.src_embed = src_embed
+        self.tgt_embed = tgt_embed
+        self.generator = generator
+        
+    def forward(self, src, tgt, src_mask, tgt_mask):
+        "Take in and process masked src and target sequences."
+        return self.decode(self.encode(src, src_mask), src_mask,
+                            tgt, tgt_mask)
+    
+    def encode(self, src, src_mask):
+        return self.encoder(self.src_embed(src), src_mask)
+    
+    def decode(self, memory, src_mask, tgt, tgt_mask):
+        return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
+
+### Class: Generator        
+class Generator(nn.Module):
+  """
+  Final output layer (linear + softmax) to be added after the decoder output
+  """
+  def __init__(self, d_model, vocab):
+    """
+    Arguments: 
+      d_model: Size of the embedding vector
+      vocab: Size of input vocabulary
+    """
+    super(Generator, self).__init__()
+    self.proj = nn.Linear(d_model, vocab)
+    self.smax = nn.LogSoftmax(dim = -1)
+
+  def forward(self, x):
+    # x = self.proj(x)
+    # x = self.smax(x)
+    return self.smax(self.proj(x))
+    
+### Function: make_model
+ def make_model(src_vocab, tgt_vocab, N=6, 
+               d_model=512, d_ff=2048, h=8, dropout=0.1):
+    "Helper: Construct a model from hyperparameters."
+    c = copy.deepcopy
+    position = PositionalEncoding(d_model, dropout)
+    model = EncoderDecoder(
+        Encoder(d_model, h, dropout, d_ff, dropout, N),
+        Decoder(d_model, h, dropout, d_ff, dropout, N),
+        nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
+        nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
+        Generator(d_model, tgt_vocab))    
+    
+    # This was important from their code. 
+    # Initialize parameters with Glorot / fan_avg.
+    for p in model.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform(p)
+    return model

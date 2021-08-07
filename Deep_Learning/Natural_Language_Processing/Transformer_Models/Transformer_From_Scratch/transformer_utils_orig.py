@@ -129,6 +129,42 @@ def attention(query, key, value, mask=None, dropout=None):
     return torch.matmul(p_attn, value), p_attn
 
 
+class ScaledDotProductAttention(nn.Module):
+  """
+  Compute Scaled Dot Product Attention (Ref: Section 3.2.1, Figure 2 (left))
+  """
+
+  def __init__(self, scaling):
+    """
+    Arguments:
+      scaling: scaling to use while computing attention
+    """
+    super(ScaledDotProductAttention, self).__init__()
+    self.scaling = scaling
+    self.softmax = nn.Softmax(dim = -1)
+  
+  def forward(self, Q, K, V, attn_mask = None, attn_dropout):
+    """
+    Arguments:
+      Q: Query tensor
+      K: Key tensor
+      V: Value tensor
+      attn_mask: Optional mask to mask out some query-key combinations
+    Returns:
+      probs: softmax(Q * K.T / scaling)
+      attn: probs.V
+    """
+    scores = torch.matmul(Q, K.transpose(-2, -1)) # Matmul of Q and K
+    scores = scores / self.scaling # Apply Scaling to maintain original variance
+    if attn_mask is not None: # Apply mask (optional)
+      scores = scores.masked_fill(attn_mask == 0, -1e9)
+    probs = self.softmax(scores) # Compute softmax
+    probs = attn_dropout(probs)
+    attn = torch.matmul(probs, V)
+
+    return attn, probs
+
+
 class MultiHeadedAttention(nn.Module):
     def __init__(self, h, d_model, dropout=0.1):
         "Take in model size and number of heads."
@@ -140,6 +176,9 @@ class MultiHeadedAttention(nn.Module):
         self.linears = clones(nn.Linear(d_model, d_model), 4)
         self.attn = None
         self.dropout = nn.Dropout(p=dropout)
+        
+        # Define SDPA instance
+        self.attention = ScaledDotProductAttention(scaling = self.d_k ** 0.5)        
         
     def forward(self, query, key, value, mask=None):
         "Implements Figure 2"
@@ -153,8 +192,10 @@ class MultiHeadedAttention(nn.Module):
              for l, x in zip(self.linears, (query, key, value))]
         
         # 2) Apply attention on all the projected vectors in batch. 
-        x, self.attn = attention(query, key, value, mask=mask, 
-                                 dropout=self.dropout)
+        
+        # x, self.attn = attention(query, key, value, mask=mask, 
+                                 # dropout=self.dropout)
+        x, self.attn = self.attention(query, key, value, attn_mask = mask, attn_dropout = self.dropout)                                 
         
         # 3) "Concat" using a view and apply a final linear. 
         x = x.transpose(1, 2).contiguous()              .view(nbatches, -1, self.h * self.d_k)

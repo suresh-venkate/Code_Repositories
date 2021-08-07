@@ -7,6 +7,8 @@ import torch.nn.functional as F
 import math, copy, time
 from torch.autograd import Variable
 
+from transformer_utils import ScaledDotProductAttention
+
 
 class EncoderDecoder(nn.Module):
     """

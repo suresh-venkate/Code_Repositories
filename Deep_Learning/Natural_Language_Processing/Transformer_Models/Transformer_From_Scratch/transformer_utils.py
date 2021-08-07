@@ -78,13 +78,14 @@ class ScaledDotProductAttention(nn.Module):
     self.scaling = scaling
     self.softmax = nn.Softmax(dim = -1)
   
-  def forward(self, Q, K, V, attn_mask = None):
+  def forward(self, Q, K, V, attn_mask = None, attn_dropout = None):
     """
     Arguments:
       Q: Query tensor
       K: Key tensor
       V: Value tensor
       attn_mask: Optional mask to mask out some query-key combinations
+      attn_dropout: Dropout layer to add after softmax output of SDPA block
     Returns:
       probs: softmax(Q * K.T / scaling)
       attn: probs.V
@@ -94,7 +95,8 @@ class ScaledDotProductAttention(nn.Module):
     if attn_mask is not None: # Apply mask (optional)
       scores = scores.masked_fill(attn_mask == 0, -1e9)
     probs = self.softmax(scores) # Compute softmax
-    attn = torch.matmul(probs, V)
+    probs = attn_dropout(probs) # Apply dropout
+    attn = torch.matmul(probs, V) # Compute final attention output
 
     return attn, probs
 

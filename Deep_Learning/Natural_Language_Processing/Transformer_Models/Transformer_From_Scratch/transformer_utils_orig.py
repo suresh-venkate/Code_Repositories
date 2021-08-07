@@ -117,54 +117,6 @@ class DecoderLayer(nn.Module):
         x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask))
         return self.sublayer[2](x, self.feed_forward)
 
-def attention(query, key, value, mask=None, dropout=None):
-    "Compute 'Scaled Dot Product Attention'"
-    d_k = query.size(-1)
-    scores = torch.matmul(query, key.transpose(-2, -1))              / math.sqrt(d_k)
-    if mask is not None:
-        scores = scores.masked_fill(mask == 0, -1e9)
-    p_attn = F.softmax(scores, dim = -1)
-    if dropout is not None:
-        p_attn = dropout(p_attn)
-    return torch.matmul(p_attn, value), p_attn
-
-
-class ScaledDotProductAttention(nn.Module):
-  """
-  Compute Scaled Dot Product Attention (Ref: Section 3.2.1, Figure 2 (left))
-  """
-
-  def __init__(self, scaling):
-    """
-    Arguments:
-      scaling: scaling to use while computing attention
-    """
-    super(ScaledDotProductAttention, self).__init__()
-    self.scaling = scaling
-    self.softmax = nn.Softmax(dim = -1)
-  
-  def forward(self, Q, K, V, attn_mask = None, attn_dropout = None):
-    """
-    Arguments:
-      Q: Query tensor
-      K: Key tensor
-      V: Value tensor
-      attn_mask: Optional mask to mask out some query-key combinations
-    Returns:
-      probs: softmax(Q * K.T / scaling)
-      attn: probs.V
-    """
-    scores = torch.matmul(Q, K.transpose(-2, -1)) # Matmul of Q and K
-    scores = scores / self.scaling # Apply Scaling to maintain original variance
-    if attn_mask is not None: # Apply mask (optional)
-      scores = scores.masked_fill(attn_mask == 0, -1e9)
-    probs = self.softmax(scores) # Compute softmax
-    probs = attn_dropout(probs)
-    attn = torch.matmul(probs, V)
-
-    return attn, probs
-
-
 class MultiHeadedAttention(nn.Module):
     def __init__(self, h, d_model, dropout=0.1):
         "Take in model size and number of heads."

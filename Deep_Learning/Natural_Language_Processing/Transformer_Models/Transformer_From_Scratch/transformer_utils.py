@@ -341,9 +341,9 @@ class Generator(nn.Module):
     self.smax = nn.LogSoftmax(dim = -1)
 
   def forward(self, x):
-    # x = self.proj(x)
-    # x = self.smax(x)
-    return self.smax(self.proj(x))
+    x = self.proj(x)
+    x = self.smax(x)
+    return x
     
 ### Function: make_model
 def make_model(src_vocab, tgt_vocab, N=6, 

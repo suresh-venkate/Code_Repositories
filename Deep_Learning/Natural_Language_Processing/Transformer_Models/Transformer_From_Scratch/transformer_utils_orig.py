@@ -143,7 +143,7 @@ class ScaledDotProductAttention(nn.Module):
     self.scaling = scaling
     self.softmax = nn.Softmax(dim = -1)
   
-  def forward(self, Q, K, V, attn_mask = None, attn_dropout):
+  def forward(self, Q, K, V, attn_mask = None, attn_dropout = None):
     """
     Arguments:
       Q: Query tensor

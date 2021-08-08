@@ -240,10 +240,10 @@ class Encoder(nn.Module):
     self.norm = nn.LayerNorm(d_model, eps = 1e-6)
         
   def forward(self, x, mask):
+    x = self.norm(x)
     for layer in self.enclayer_stack:
       x = layer(x, mask)
-    x = self.norm(x)    
-    return x
+    return self.norm(x)
 
 ### Class: DecoderLayer
 class DecoderLayer(nn.Module):

@@ -32,7 +32,7 @@ class AddAndNorm(nn.Module):
   """
   Add a residual connection followed by a layer norm. (Ref: Section 5.4, Residual Dropout)
   """
-  def __init__(self, size, dropout):
+  def __init__(self, size):
     super(AddAndNorm, self).__init__()
     self.norm = nn.LayerNorm(size, eps = 1e-6)
     
@@ -40,33 +40,85 @@ class AddAndNorm(nn.Module):
     return x + sublayer(self.norm(x))
     #return self.norm(x + sublayer(x))
 
+### Class: EncoderLayer 
 class EncoderLayer(nn.Module):
-    "Encoder is made up of self-attn and feed forward (defined below)"
-    def __init__(self, size, self_attn, feed_forward, dropout):
-        super(EncoderLayer, self).__init__()
-        self.self_attn = self_attn
-        self.feed_forward = feed_forward
-        #self.sublayer = clones(SublayerConnection(size, dropout), 2)
-        self.sublayer = clones(AddAndNorm(size, dropout), 2)
-        self.size = size
+  """
+  Single Encoder Unit comprising of a multi-head-attention unit with add_and_norm followed by
+  a position-wise-feed-forward-network with add_and_norm (Ref: Section 3.1, Encoder, Fig.1 left side)
+  """
+  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout):
+    """
+    Arguments:
+      d_model: Size of input embeddings    
+      h: Number of parallel attention layers (heads)
+      attn_dropout: dropout value to use in MHA module
+      d_ff: Dimension of hidden layer in position wise feedforward layer
+      pwff_dropout: Dropout value to use for position wise feedforward layers
+    """
+    super(EncoderLayer, self).__init__()
+    self.MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
+    self.PWFFN = PositionwiseFeedForward(d_model, d_ff, pwff_dropout)
+    self.addandnorm_MHA = AddAndNorm(d_model)
+    self.addandnorm_PWFFN = AddAndNorm(d_model)
 
-    def forward(self, x, mask):
-        "Follow Figure 1 (left) for connections."
-        x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
-        return self.sublayer[1](x, self.feed_forward)
+  def forward(self, x, mask):
+    x = self.addandnorm_MHA(x, lambda x: self.MHA_unit(x, x, x, mask))
+    x = self.addandnorm_PWFFN(x, self.PWFFN)
+    return x
 
+# class EncoderLayer(nn.Module):
+    # "Encoder is made up of self-attn and feed forward (defined below)"
+    # def __init__(self, size, self_attn, feed_forward, dropout):
+        # super(EncoderLayer, self).__init__()
+        # self.self_attn = self_attn
+        # self.feed_forward = feed_forward
+        # #self.sublayer = clones(SublayerConnection(size, dropout), 2)
+        # self.sublayer = clones(AddAndNorm(size), 2)
+        # self.size = size
+
+    # def forward(self, x, mask):
+        # "Follow Figure 1 (left) for connections."
+        # x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
+        # return self.sublayer[1](x, self.feed_forward)
+
+### Class: Encoder
 class Encoder(nn.Module):
-    "Core encoder is a stack of N layers"
-    def __init__(self, layer, N):
-        super(Encoder, self).__init__()
-        self.layers = clones(layer, N)
-        self.norm = nn.LayerNorm(layer.size, eps = 1e-6)
+  """
+  Encoder is a stack of N EncoderLayers
+  """
+  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout, N):
+    """
+    Arguments:
+      d_model: Size of input embeddings    
+      h: Number of parallel attention layers (heads)
+      attn_dropout: dropout value to use in MHA module
+      d_ff: Dimension of hidden layer
+      pwff_dropout: Dropout value to use for position wise feedforward layers    
+      N: Number of EncoderLayers in the Encoder stack
+    """
+    super(Encoder, self).__init__()
+    self.enclayer = EncoderLayer(d_model, h, attn_dropout, d_ff, pwff_dropout)
+    self.enclayer_stack = clones(self.enclayer, N)
+    self.norm = nn.LayerNorm(d_model, eps = 1e-6)
         
-    def forward(self, x, mask):
-        "Pass the input (and mask) through each layer in turn."
-        for layer in self.layers:
-            x = layer(x, mask)
-        return self.norm(x)
+  def forward(self, x, mask):
+    #x = self.norm(x)
+    for layer in self.enclayer_stack:
+      x = layer(x, mask)
+    return self.norm(x)
+
+# class Encoder(nn.Module):
+    # "Core encoder is a stack of N layers"
+    # def __init__(self, layer, N):
+        # super(Encoder, self).__init__()
+        # self.layers = clones(layer, N)
+        # self.norm = nn.LayerNorm(layer.size, eps = 1e-6)
+        
+    # def forward(self, x, mask):
+        # "Pass the input (and mask) through each layer in turn."
+        # for layer in self.layers:
+            # x = layer(x, mask)
+        # return self.norm(x)
 
 class DecoderLayer(nn.Module):
     "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
@@ -128,13 +180,20 @@ def make_model(src_vocab, tgt_vocab, N=6,
     attn = MultiHeadAttention(h, d_model, attn_dropout = dropout)
     ff = PositionwiseFeedForward(d_model, d_ff, dropout)
     position = PositionalEncoding(d_model, dropout)
+    # model = EncoderDecoder(
+        # Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
+        # Decoder(DecoderLayer(d_model, c(attn), c(attn), 
+                             # c(ff), dropout), N),
+        # nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
+        # nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
+        # Generator(d_model, tgt_vocab))
     model = EncoderDecoder(
-        Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
+        Encoder(d_model, h, dropout, d_ff, dropout, N),
         Decoder(DecoderLayer(d_model, c(attn), c(attn), 
                              c(ff), dropout), N),
         nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
         nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
-        Generator(d_model, tgt_vocab))
+        Generator(d_model, tgt_vocab))        
     
     # This was important from their code. 
     # Initialize parameters with Glorot / fan_avg.

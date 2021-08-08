@@ -147,7 +147,7 @@ class MultiHeadAttention(nn.Module):
         
     # Apply Scaled Dot Product Attention
     # Shape of x is nb x h x lq x d_k
-    x, self.attn = self.attention(Q, K, V, attn_mask = mask)
+    x, self.attn = self.attention(Q, K, V, attn_mask = mask, attn_dropout = self.dropout)
 
     # Transpose nb and h dimensions and concatenate all heads together into 
     # a single unit of dimension h x d_k = d_model 

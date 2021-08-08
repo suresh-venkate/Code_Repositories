@@ -46,7 +46,7 @@ class Encoder(nn.Module):
     def __init__(self, layer, N):
         super(Encoder, self).__init__()
         self.layers = clones(layer, N)
-        self.norm = LayerNorm(layer.size)
+        self.norm = nn.LayerNorm(layer.size, eps = 1e-6)
         
     def forward(self, x, mask):
         "Pass the input (and mask) through each layer in turn."

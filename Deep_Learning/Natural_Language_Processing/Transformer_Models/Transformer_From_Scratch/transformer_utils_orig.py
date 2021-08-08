@@ -11,7 +11,7 @@ from transformer_utils import clones, Embeddings, PositionalEncoding
 from transformer_utils import Generator
 from transformer_utils import PositionwiseFeedForward
 from transformer_utils import ScaledDotProductAttention, MultiHeadAttention
-
+from transformer_utils import AddAndNorm, EncoderLayer, Encoder
 
 class SublayerConnection(nn.Module):
     """
@@ -26,71 +26,6 @@ class SublayerConnection(nn.Module):
     def forward(self, x, sublayer):
         "Apply residual connection to any sublayer with the same size."
         return x + self.dropout(sublayer(self.norm(x)))
-
-### Class: AddAndNorm    
-class AddAndNorm(nn.Module):
-  """
-  Add a residual connection followed by a layer norm. (Ref: Section 5.4, Residual Dropout)
-  """
-  def __init__(self, size):
-    super(AddAndNorm, self).__init__()
-    self.norm = nn.LayerNorm(size, eps = 1e-6)
-    
-  def forward(self, x, sublayer):
-    #return x + sublayer(self.norm(x))
-    return self.norm(x + sublayer(x))
-
-### Class: EncoderLayer 
-class EncoderLayer(nn.Module):
-  """
-  Single Encoder Unit comprising of a multi-head-attention unit with add_and_norm followed by
-  a position-wise-feed-forward-network with add_and_norm (Ref: Section 3.1, Encoder, Fig.1 left side)
-  """
-  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout):
-    """
-    Arguments:
-      d_model: Size of input embeddings    
-      h: Number of parallel attention layers (heads)
-      attn_dropout: dropout value to use in MHA module
-      d_ff: Dimension of hidden layer in position wise feedforward layer
-      pwff_dropout: Dropout value to use for position wise feedforward layers
-    """
-    super(EncoderLayer, self).__init__()
-    self.MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
-    self.PWFFN = PositionwiseFeedForward(d_model, d_ff, pwff_dropout)
-    self.addandnorm_MHA = AddAndNorm(d_model)
-    self.addandnorm_PWFFN = AddAndNorm(d_model)
-
-  def forward(self, x, mask):
-    x = self.addandnorm_MHA(x, lambda x: self.MHA_unit(x, x, x, mask))
-    x = self.addandnorm_PWFFN(x, self.PWFFN)
-    return x
-
-### Class: Encoder
-class Encoder(nn.Module):
-  """
-  Encoder is a stack of N EncoderLayers
-  """
-  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout, N):
-    """
-    Arguments:
-      d_model: Size of input embeddings    
-      h: Number of parallel attention layers (heads)
-      attn_dropout: dropout value to use in MHA module
-      d_ff: Dimension of hidden layer
-      pwff_dropout: Dropout value to use for position wise feedforward layers    
-      N: Number of EncoderLayers in the Encoder stack
-    """
-    super(Encoder, self).__init__()
-    self.enclayer = EncoderLayer(d_model, h, attn_dropout, d_ff, pwff_dropout)
-    self.enclayer_stack = clones(self.enclayer, N)
-    self.norm = nn.LayerNorm(d_model, eps = 1e-6)
-        
-  def forward(self, x, mask):
-    x = self.norm(x)
-    for layer in self.enclayer_stack:
-      x = layer(x, mask)
-    return self.norm(x)
 
 class DecoderLayer(nn.Module):
     "Decoder is made of self-attn, src-attn, and feed forward (defined below)"

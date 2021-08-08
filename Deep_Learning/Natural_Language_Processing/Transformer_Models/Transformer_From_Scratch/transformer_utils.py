@@ -191,7 +191,7 @@ class AddAndNorm(nn.Module):
     self.norm = nn.LayerNorm(size, eps = 1e-6)
     
   def forward(self, x, sublayer):
-    return self.norm(x + sublayer(x))
+    return x + sublayer(self.norm(x))
 
 ### Class: EncoderLayer 
 class EncoderLayer(nn.Module):
@@ -240,9 +240,9 @@ class Encoder(nn.Module):
     self.norm = nn.LayerNorm(d_model, eps = 1e-6)
         
   def forward(self, x, mask):
-    x = self.norm(x)
     for layer in self.enclayer_stack:
       x = layer(x, mask)
+    x = self.norm(x)    
     return x
 
 ### Class: DecoderLayer

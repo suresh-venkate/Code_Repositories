@@ -32,12 +32,13 @@ class AddAndNorm(nn.Module):
   """
   Add a residual connection followed by a layer norm. (Ref: Section 5.4, Residual Dropout)
   """
-  def __init__(self, size):
+  def __init__(self, size, dropout):
     super(AddAndNorm, self).__init__()
     self.norm = nn.LayerNorm(size, eps = 1e-6)
     
   def forward(self, x, sublayer):
-    return self.norm(x + sublayer(x))
+    return x + sublayer(self.norm(x))
+    #return self.norm(x + sublayer(x))
 
 class EncoderLayer(nn.Module):
     "Encoder is made up of self-attn and feed forward (defined below)"
@@ -45,7 +46,8 @@ class EncoderLayer(nn.Module):
         super(EncoderLayer, self).__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
-        self.sublayer = clones(SublayerConnection(size, dropout), 2)
+        #self.sublayer = clones(SublayerConnection(size, dropout), 2)
+        self.sublayer = clones(AddAndNorm(size, dropout), 2)
         self.size = size
 
     def forward(self, x, mask):

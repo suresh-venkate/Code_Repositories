@@ -11,7 +11,8 @@ from transformer_utils import clones, Embeddings, PositionalEncoding
 from transformer_utils import Generator
 from transformer_utils import PositionwiseFeedForward
 from transformer_utils import ScaledDotProductAttention, MultiHeadAttention
-#from transformer_utils import AddAndNorm, EncoderLayer, Encoder
+from transformer_utils import AddAndNorm
+#from transformer_utils import EncoderLayer, Encoder
 
 class SublayerConnection(nn.Module):
     """

@@ -106,47 +106,106 @@ class DecoderLayer(nn.Module):
         x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask))
         return self.sublayer[2](x, self.feed_forward)
 
-class MultiHeadedAttention(nn.Module):
-    def __init__(self, h, d_model, dropout=0.1):
-        "Take in model size and number of heads."
-        super(MultiHeadedAttention, self).__init__()
-        assert d_model % h == 0
-        # We assume d_v always equals d_k
-        self.d_k = d_model // h
-        self.h = h
-        self.linears = clones(nn.Linear(d_model, d_model), 4)
-        self.attn = None
-        self.dropout = nn.Dropout(p=dropout)
+### Class: MultiHeadAttention
+class MultiHeadAttention(nn.Module):
+  """
+  Compute Multi-Head Attention (Ref: Section 3.2.2, Figure 2 (right))
+  """
+  def __init__(self, h, d_model, attn_dropout = 0.1):
+    """
+    Arguments:
+      h: Number of parallel attention layers (heads)
+      d_model: Size of input embeddings
+      attn_dropout: dropout value to use in MHA module
+    """
+    super(MultiHeadAttention, self).__init__()
+    assert d_model % h == 0 # Confirm that input embedding size is a multiple of # heads
+    self.d_k = d_model // h # Dimension of projected outputs
+    self.h = h # Number of heads
+    self.attn = None # Placeholder to store attention softmax output
+
+    # Define linear layers for projecting Q, K, V
+    self.wi_q = nn.Linear(d_model, d_model, bias = False)
+    self.wi_k = nn.Linear(d_model, d_model, bias = False)
+    self.wi_v = nn.Linear(d_model, d_model, bias = False)
+
+    # Define SDPA instance
+    self.attention = ScaledDotProductAttention(scaling = self.d_k ** 0.5)
+
+    # Define final FC and dropout layers
+    self.fc = nn.Linear(d_model, d_model, bias = False)
+    self.dropout = nn.Dropout(p = attn_dropout)
         
-        # Define SDPA instance
-        self.attention = ScaledDotProductAttention(scaling = self.d_k ** 0.5)        
+  def forward(self, Q, K, V, mask = None):
+    if mask is not None:
+      mask = mask.unsqueeze(1) # Head axis broadcasting - Same mask applied to all h heads.
+    
+    nb = Q.size(0) # Extract number of batches in Q 
+    # Q, K, V are of shape nb x lq x d_model
+    # Pass through linear layers and separate each head to get
+    # outputs of shape nb x lq x h x d_k
+    Q = self.wi_q(Q).view(nb, -1, self.h, self.d_k)
+    K = self.wi_k(K).view(nb, -1, self.h, self.d_k)
+    V = self.wi_v(V).view(nb, -1, self.h, self.d_k)
+
+    # Transpose lq and h for attention dot product
+    # Shape is now nb x h x lq x d_k
+    Q, K, V = Q.transpose(1, 2), K.transpose(1, 2), V.transpose(1, 2)
         
-    def forward(self, query, key, value, mask=None):
-        "Implements Figure 2"
-        if mask is not None:
-            # Same mask applied to all h heads.
-            mask = mask.unsqueeze(1)
-        nbatches = query.size(0)
+    # Apply Scaled Dot Product Attention
+    # Shape of x is nb x h x lq x d_k
+    x, self.attn = self.attention(Q, K, V, attn_mask = mask)
+
+    # Transpose nb and h dimensions and concatenate all heads together into 
+    # a single unit of dimension h x d_k = d_model 
+    x = x.transpose(1, 2).contiguous().view(nb, -1, self.h * self.d_k)
+
+    # Apply final linear layer and dropout
+    x = self.dropout(self.fc(x))
+    
+    return x
+
+# class MultiHeadedAttention(nn.Module):
+    # def __init__(self, h, d_model, dropout=0.1):
+        # "Take in model size and number of heads."
+        # super(MultiHeadedAttention, self).__init__()
+        # assert d_model % h == 0
+        # # We assume d_v always equals d_k
+        # self.d_k = d_model // h
+        # self.h = h
+        # self.linears = clones(nn.Linear(d_model, d_model), 4)
+        # self.attn = None
+        # self.dropout = nn.Dropout(p=dropout)
         
-        # 1) Do all the linear projections in batch from d_model => h x d_k 
-        query, key, value =             [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-             for l, x in zip(self.linears, (query, key, value))]
+        # # Define SDPA instance
+        # self.attention = ScaledDotProductAttention(scaling = self.d_k ** 0.5)        
         
-        # 2) Apply attention on all the projected vectors in batch. 
+    # def forward(self, query, key, value, mask=None):
+        # "Implements Figure 2"
+        # if mask is not None:
+            # # Same mask applied to all h heads.
+            # mask = mask.unsqueeze(1)
+        # nbatches = query.size(0)
         
-        # x, self.attn = attention(query, key, value, mask=mask, 
-                                 # dropout=self.dropout)
-        x, self.attn = self.attention(query, key, value, attn_mask = mask, attn_dropout = self.dropout)                                 
+        # # 1) Do all the linear projections in batch from d_model => h x d_k 
+        # query, key, value =             [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+             # for l, x in zip(self.linears, (query, key, value))]
         
-        # 3) "Concat" using a view and apply a final linear. 
-        x = x.transpose(1, 2).contiguous()              .view(nbatches, -1, self.h * self.d_k)
-        return self.linears[-1](x)
+        # # 2) Apply attention on all the projected vectors in batch. 
+        
+        # # x, self.attn = attention(query, key, value, mask=mask, 
+                                 # # dropout=self.dropout)
+        # x, self.attn = self.attention(query, key, value, attn_mask = mask, attn_dropout = self.dropout)                                 
+        
+        # # 3) "Concat" using a view and apply a final linear. 
+        # x = x.transpose(1, 2).contiguous()              .view(nbatches, -1, self.h * self.d_k)
+        # return self.linears[-1](x)
 
 def make_model(src_vocab, tgt_vocab, N=6, 
                d_model=512, d_ff=2048, h=8, dropout=0.1):
     "Helper: Construct a model from hyperparameters."
     c = copy.deepcopy
-    attn = MultiHeadedAttention(h, d_model)
+    attn = MultiHeadAttention(h, d_model, attn_dropout = dropout)
     ff = PositionwiseFeedForward(d_model, d_ff, dropout)
     position = PositionalEncoding(d_model, dropout)
     model = EncoderDecoder(

@@ -37,8 +37,8 @@ class AddAndNorm(nn.Module):
     self.norm = nn.LayerNorm(size, eps = 1e-6)
     
   def forward(self, x, sublayer):
-    return x + sublayer(self.norm(x))
-    #return self.norm(x + sublayer(x))
+    #return x + sublayer(self.norm(x))
+    return self.norm(x + sublayer(x))
 
 ### Class: EncoderLayer 
 class EncoderLayer(nn.Module):

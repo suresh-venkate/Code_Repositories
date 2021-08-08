@@ -186,12 +186,13 @@ class AddAndNorm(nn.Module):
   """
   Add a residual connection followed by a layer norm. (Ref: Section 5.4, Residual Dropout)
   """
-  def __init__(self, size):
+  def __init__(self, size, dropout):
     super(AddAndNorm, self).__init__()
     self.norm = nn.LayerNorm(size, eps = 1e-6)
+    self.dropout = nn.Dropout(dropout)
     
   def forward(self, x, sublayer):
-    return x + sublayer(self.norm(x))
+    return x + self.dropout(sublayer(self.norm(x)))
 
 ### Class: EncoderLayer 
 class EncoderLayer(nn.Module):

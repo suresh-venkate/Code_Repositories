@@ -36,19 +36,6 @@ class EncoderDecoder(nn.Module):
     def decode(self, memory, src_mask, tgt, tgt_mask):
         return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
 
-# class Generator(nn.Module):
-    # "Define standard linear + softmax generation step."
-    # def __init__(self, d_model, vocab):
-        # super(Generator, self).__init__()
-        # self.proj = nn.Linear(d_model, vocab)
-
-    # def forward(self, x):
-        # return F.log_softmax(self.proj(x), dim=-1)
-
-# def clones(module, N):
-    # "Produce N identical layers."
-    # return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
-
 class Encoder(nn.Module):
     "Core encoder is a stack of N layers"
     def __init__(self, layer, N):
@@ -61,7 +48,6 @@ class Encoder(nn.Module):
         for layer in self.layers:
             x = layer(x, mask)
         return self.norm(x)
-
 
 class SublayerConnection(nn.Module):
     """
@@ -90,7 +76,6 @@ class EncoderLayer(nn.Module):
         "Follow Figure 1 (left) for connections."
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
         return self.sublayer[1](x, self.feed_forward)
-
 
 class Decoder(nn.Module):
     "Generic N layer decoder with masking."
@@ -156,49 +141,6 @@ class MultiHeadedAttention(nn.Module):
         # 3) "Concat" using a view and apply a final linear. 
         x = x.transpose(1, 2).contiguous()              .view(nbatches, -1, self.h * self.d_k)
         return self.linears[-1](x)
-
-
-# class PositionwiseFeedForward(nn.Module):
-    # "Implements FFN equation."
-    # def __init__(self, d_model, d_ff, dropout=0.1):
-        # super(PositionwiseFeedForward, self).__init__()
-        # self.w_1 = nn.Linear(d_model, d_ff)
-        # self.w_2 = nn.Linear(d_ff, d_model)
-        # self.dropout = nn.Dropout(dropout)
-
-    # def forward(self, x):
-        # return self.w_2(self.dropout(F.relu(self.w_1(x))))
-
-
-# class Embeddings(nn.Module):
-    # def __init__(self, d_model, vocab):
-        # super(Embeddings, self).__init__()
-        # self.lut = nn.Embedding(vocab, d_model)
-        # self.d_model = d_model
-
-    # def forward(self, x):
-        # return self.lut(x) * math.sqrt(self.d_model)
-
-# class PositionalEncoding(nn.Module):
-    # "Implement the PE function."
-    # def __init__(self, d_model, dropout, max_len=5000):
-        # super(PositionalEncoding, self).__init__()
-        # self.dropout = nn.Dropout(p=dropout)
-        
-        # # Compute the positional encodings once in log space.
-        # pe = torch.zeros(max_len, d_model)
-        # position = torch.arange(0, max_len).unsqueeze(1)
-        # div_term = torch.exp(torch.arange(0, d_model, 2) *
-                             # -(math.log(10000.0) / d_model))
-        # pe[:, 0::2] = torch.sin(position * div_term)
-        # pe[:, 1::2] = torch.cos(position * div_term)
-        # pe = pe.unsqueeze(0)
-        # self.register_buffer('pe', pe)
-        
-    # def forward(self, x):
-        # x = x + Variable(self.pe[:, :x.size(1)], 
-                         # requires_grad=False)
-        # return self.dropout(x)
 
 def make_model(src_vocab, tgt_vocab, N=6, 
                d_model=512, d_ff=2048, h=8, dropout=0.1):

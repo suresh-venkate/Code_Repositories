@@ -306,7 +306,8 @@ class Decoder(nn.Module):
 ### Class: EncoderDecoder
 class EncoderDecoder(nn.Module):
     """
-    Overall Encode Decoder module
+    A standard Encoder-Decoder architecture. Base for this and many 
+    other models.
     """
     def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
         super(EncoderDecoder, self).__init__()
@@ -352,14 +353,22 @@ def make_model(src_vocab, tgt_vocab, N=6,
                d_model=512, d_ff=2048, h=8, dropout=0.1):
     "Helper: Construct a model from hyperparameters."
     c = copy.deepcopy
+    attn = MultiHeadAttention(h, d_model, attn_dropout = dropout)
+    ff = PositionwiseFeedForward(d_model, d_ff, dropout)
     position = PositionalEncoding(d_model, dropout)
+    # model = EncoderDecoder(
+        # Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N),
+        # Decoder(DecoderLayer(d_model, c(attn), c(attn), 
+                             # c(ff), dropout), N),
+        # nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
+        # nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
+        # Generator(d_model, tgt_vocab))        
     model = EncoderDecoder(
         Encoder(d_model, h, dropout, d_ff, dropout, N),
         Decoder(d_model, h, dropout, d_ff, dropout, N),
         nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
         nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
         Generator(d_model, tgt_vocab))    
-    
     # This was important from their code. 
     # Initialize parameters with Glorot / fan_avg.
     for p in model.parameters():

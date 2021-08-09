@@ -13,6 +13,7 @@ from transformer_utils import PositionwiseFeedForward
 from transformer_utils import ScaledDotProductAttention, MultiHeadAttention
 from transformer_utils import AddAndNorm
 from transformer_utils import EncoderLayer, Encoder
+from transformer_utils import DecoderLayer, Decoder
 
 # ### Class: DecoderLayer
 # class DecoderLayer(nn.Module):
@@ -45,22 +46,22 @@ from transformer_utils import EncoderLayer, Encoder
     # x = self.addandnorm_PWFFN(x, self.PWFFN)
     # return x  
 
-class DecoderLayer(nn.Module):
-    "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
-    def __init__(self, size, self_attn, src_attn, feed_forward, dropout):
-        super(DecoderLayer, self).__init__()
-        self.size = size
-        self.self_attn = self_attn
-        self.src_attn = src_attn
-        self.feed_forward = feed_forward
-        self.sublayer = clones(AddAndNorm(size, dropout), 3)
+# class DecoderLayer(nn.Module):
+    # "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
+    # def __init__(self, size, self_attn, src_attn, feed_forward, dropout):
+        # super(DecoderLayer, self).__init__()
+        # self.size = size
+        # self.self_attn = self_attn
+        # self.src_attn = src_attn
+        # self.feed_forward = feed_forward
+        # self.sublayer = clones(AddAndNorm(size, dropout), 3)
  
-    def forward(self, x, memory, src_mask, tgt_mask):
-        "Follow Figure 1 (right) for connections."
-        m = memory
-        x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, tgt_mask))
-        x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask))
-        return self.sublayer[2](x, self.feed_forward)
+    # def forward(self, x, memory, src_mask, tgt_mask):
+        # "Follow Figure 1 (right) for connections."
+        # m = memory
+        # x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, tgt_mask))
+        # x = self.sublayer[1](x, lambda x: self.src_attn(x, m, m, src_mask))
+        # return self.sublayer[2](x, self.feed_forward)
         
 # ### Class: Decoder
 # class Decoder(nn.Module):
@@ -88,17 +89,17 @@ class DecoderLayer(nn.Module):
       # x = layer(x, memory, src_mask, tgt_mask)
     # return self.norm(x)
 
-class Decoder(nn.Module):
-    "Generic N layer decoder with masking."
-    def __init__(self, layer, N):
-        super(Decoder, self).__init__()
-        self.layers = clones(layer, N)
-        self.norm = nn.LayerNorm(layer.size, eps = 1e-6)
+# class Decoder(nn.Module):
+    # "Generic N layer decoder with masking."
+    # def __init__(self, layer, N):
+        # super(Decoder, self).__init__()
+        # self.layers = clones(layer, N)
+        # self.norm = nn.LayerNorm(layer.size, eps = 1e-6)
         
-    def forward(self, x, memory, src_mask, tgt_mask):
-        for layer in self.layers:
-            x = layer(x, memory, src_mask, tgt_mask)
-        return self.norm(x)
+    # def forward(self, x, memory, src_mask, tgt_mask):
+        # for layer in self.layers:
+            # x = layer(x, memory, src_mask, tgt_mask)
+        # return self.norm(x)
 
 class EncoderDecoder(nn.Module):
     """
@@ -140,8 +141,7 @@ def make_model(src_vocab, tgt_vocab, N=6,
         # Generator(d_model, tgt_vocab))        
     model = EncoderDecoder(
         Encoder(d_model, h, dropout, d_ff, dropout, N),
-        Decoder(DecoderLayer(d_model, c(attn), c(attn), 
-                              c(ff), dropout), N),
+        Decoder(d_model, h, dropout, d_ff, dropout, N),
         nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
         nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
         Generator(d_model, tgt_vocab))    

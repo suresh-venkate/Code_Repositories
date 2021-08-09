@@ -83,7 +83,7 @@ class Decoder(nn.Module):
     self.norm = nn.LayerNorm(d_model, eps = 1e-6)    
         
   def forward(self, x, memory, src_mask, tgt_mask):
-    x = self.norm(x)
+    #x = self.norm(x)
     for layer in self.declayer_stack:
       x = layer(x, memory, src_mask, tgt_mask)
     return self.norm(x)

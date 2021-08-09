@@ -262,13 +262,13 @@ class DecoderLayer(nn.Module):
       pwff_dropout: Dropout value to use for position wise feedforward layers
     """    
     super(DecoderLayer, self).__init__()
-    self.size = d_model
+    #self.size = d_model
     self.self_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
     self.src_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
     self.PWFFN = PositionwiseFeedForward(d_model, d_ff, pwff_dropout)
-    self.addandnorm_self_MHA = AddAndNorm(d_model)
-    self.addandnorm_src_MHA = AddAndNorm(d_model)
-    self.addandnorm_PWFFN = AddAndNorm(d_model)
+    self.addandnorm_self_MHA = AddAndNorm(d_model, attn_dropout)
+    self.addandnorm_src_MHA = AddAndNorm(d_model, attn_dropout)
+    self.addandnorm_PWFFN = AddAndNorm(d_model, pwff_dropout)
  
   def forward(self, x, memory, src_mask, tgt_mask):
     m = memory
@@ -301,7 +301,7 @@ class Decoder(nn.Module):
     x = self.norm(x)
     for layer in self.declayer_stack:
       x = layer(x, memory, src_mask, tgt_mask)
-    return x
+    return self.norm(x)
 
 ### Class: EncoderDecoder
 class EncoderDecoder(nn.Module):

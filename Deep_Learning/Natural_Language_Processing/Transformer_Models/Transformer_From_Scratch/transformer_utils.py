@@ -71,7 +71,7 @@ class ScaledDotProductAttention(nn.Module):
   def __init__(self, scaling):
     """
     Arguments:
-      scaling: scaling to use while computing attention
+      scaling: scaling to use while computing attention. Set to sqrt(dk), where dk = 64 in the Transformer paper.
     """
     super(ScaledDotProductAttention, self).__init__()
     self.scaling = scaling
@@ -80,22 +80,27 @@ class ScaledDotProductAttention(nn.Module):
   def forward(self, Q, K, V, attn_mask = None, attn_dropout = None):
     """
     Arguments:
-      Q: Query tensor
-      K: Key tensor
-      V: Value tensor
+      Q: Query tensor of shape [nb, nh, nw, dk], where 
+         nb = batch size
+         nh = number of attention heads in the MHA (8 in the transformer paper)
+         nw = number of words (or positions) in the input
+         dk = dimension of the query vector (64 in the transformer paper)
+      K: Key tensor of shape [nb, nh, nw, dk]
+      V: Value tensor of shape [nb, nh, nw, dv], where
+         dv = dimension of the value vector (64 in the transformer paper)
       attn_mask: Optional mask to mask out some query-key combinations
       attn_dropout: Dropout layer to add after softmax output of SDPA block
     Returns:
       probs: softmax(Q * K.T / scaling)
-      attn: probs.V
+      attn: probs.V (Equation (1) in the Transformer paper)
     """
-    scores = torch.matmul(Q, K.transpose(-2, -1)) # Matmul of Q and K
-    scores = scores / self.scaling # Apply Scaling to maintain original variance
+    scores = torch.matmul(Q, K.transpose(-2, -1)) # Matmul of Q and K - Computes Q(K.T). Shape = [nb, nh, nw, nw]
+    scores = scores / self.scaling # Apply Scaling to maintain original variance - Computes Q(K.T)/sqrt(dk). Shape = [nb, nh, nw, nw]
     if attn_mask is not None: # Apply mask (optional)
       scores = scores.masked_fill(attn_mask == 0, -1e9)
-    probs = self.softmax(scores) # Compute softmax
-    probs = attn_dropout(probs) # Apply dropout
-    attn = torch.matmul(probs, V) # Compute final attention output
+    probs = self.softmax(scores) # Compute softmax. Shape = [nb, nh, nw, nw]
+    probs = attn_dropout(probs) # Apply dropout. Shape = [nb, nh, nw, nw]
+    attn = torch.matmul(probs, V) # Compute final attention output. Shape = [nb, nh, nw, dv]
 
     return attn, probs
 

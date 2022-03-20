@@ -36,6 +36,14 @@ class Embeddings(nn.Module):
     self.d_model = d_model
 
   def forward(self, x):
+    """
+    Arguments:
+      x: Input tensor of shape [nb, nw], where 
+         nb = batch size
+         nw = number of words (positions) in the input
+    Returns:
+      Embedded tensor of shape [nb, nw, d_model]
+    """
     return self.emb(x) * math.sqrt(self.d_model)
 
 ### Class: PositionalEncoding

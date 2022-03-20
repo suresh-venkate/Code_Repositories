@@ -80,13 +80,13 @@ class ScaledDotProductAttention(nn.Module):
   def forward(self, Q, K, V, attn_mask = None, attn_dropout = None):
     """
     Arguments:
-      Q: Query tensor of shape [nb, nh, nw, dk], where 
+      Q: Query tensor of shape [nb, h, nw, dk], where 
          nb = batch size
-         nh = number of attention heads in the MHA (8 in the transformer paper)
+         h = number of attention heads in the MHA (8 in the transformer paper)
          nw = number of words (or positions) in the input
          dk = dimension of the query vector (64 in the transformer paper)
-      K: Key tensor of shape [nb, nh, nw, dk]
-      V: Value tensor of shape [nb, nh, nw, dv], where
+      K: Key tensor of shape [nb, h, nw, dk]
+      V: Value tensor of shape [nb, h, nw, dv], where
          dv = dimension of the value vector (64 in the transformer paper)
       attn_mask: Optional mask to mask out some query-key combinations
       attn_dropout: Dropout layer to add after softmax output of SDPA block
@@ -94,13 +94,13 @@ class ScaledDotProductAttention(nn.Module):
       probs: softmax(Q * K.T / scaling)
       attn: probs.V (Equation (1) in the Transformer paper)
     """
-    scores = torch.matmul(Q, K.transpose(-2, -1)) # Matmul of Q and K - Computes Q(K.T). Shape = [nb, nh, nw, nw]
-    scores = scores / self.scaling # Apply Scaling to maintain original variance - Computes Q(K.T)/sqrt(dk). Shape = [nb, nh, nw, nw]
+    scores = torch.matmul(Q, K.transpose(-2, -1)) # Matmul of Q and K - Computes Q(K.T). Shape = [nb, h, nw, nw]
+    scores = scores / self.scaling # Apply Scaling to maintain original variance - Computes Q(K.T)/sqrt(dk). Shape = [nb, h, nw, nw]
     if attn_mask is not None: # Apply mask (optional)
       scores = scores.masked_fill(attn_mask == 0, -1e9)
-    probs = self.softmax(scores) # Compute softmax. Shape = [nb, nh, nw, nw]
-    probs = attn_dropout(probs) # Apply dropout. Shape = [nb, nh, nw, nw]
-    attn = torch.matmul(probs, V) # Compute final attention output. Shape = [nb, nh, nw, dv]
+    probs = self.softmax(scores) # Compute softmax. Shape = [nb, h, nw, nw]
+    probs = attn_dropout(probs) # Apply dropout. Shape = [nb, h, nw, nw]
+    attn = torch.matmul(probs, V) # Compute final attention output. Shape = [nb, h, nw, dv]
 
     return attn, probs
 
@@ -112,53 +112,66 @@ class MultiHeadAttention(nn.Module):
   def __init__(self, h, d_model, attn_dropout = 0.1):
     """
     Arguments:
-      h: Number of parallel attention layers (heads)
-      d_model: Size of input embeddings
+      h: Number of parallel attention layers (heads) [8 in the transformer paper]
+      d_model: Size of input embeddings [512 in the transformer paper]
       attn_dropout: dropout value to use in MHA module
     """
     super(MultiHeadAttention, self).__init__()
     assert d_model % h == 0 # Confirm that input embedding size is a multiple of # heads
-    self.d_k = d_model // h # Dimension of projected outputs
+    self.d_k = d_model // h # Dimension of projected outputs for each head
     self.h = h # Number of heads
     self.attn = None # Placeholder to store attention softmax output
 
     # Define linear layers for projecting Q, K, V
+    # This is a combined linear layer for all heads together
     self.wi_q = nn.Linear(d_model, d_model, bias = False)
     self.wi_k = nn.Linear(d_model, d_model, bias = False)
     self.wi_v = nn.Linear(d_model, d_model, bias = False)
 
     # Define SDPA instance
-    self.attention = ScaledDotProductAttention(scaling = self.d_k ** 0.5)
+    self.sdpa = ScaledDotProductAttention(scaling = np.sqrt(self.d_k))
 
     # Define final FC and dropout layers
     self.fc = nn.Linear(d_model, d_model, bias = False)
     self.dropout = nn.Dropout(p = attn_dropout)
         
   def forward(self, Q, K, V, mask = None):
+    """
+    Arguments:
+      Q: Query tensor of shape [nb, nw, d_model], where 
+         nb = batch size
+         nw = number of words (or positions) in the input
+         d_model = dimension of the input embeddings (512 in the transformer paper)
+      K: Key tensor of shape [nb, nw, d_model]
+      V: Value tensor of shape [nb, nw, d_model], where
+      attn_mask: Optional mask to mask out some query-key combinations
+      attn_dropout: Dropout layer to add after softmax output of SDPA block
+    Returns:
+      x: output of the MHA layer of shape [nb, nw, d_model]
+    """    
     if mask is not None:
       mask = mask.unsqueeze(1) # Head axis broadcasting - Same mask applied to all h heads.
     
     nb = Q.size(0) # Extract number of batches in Q 
-    # Q, K, V are of shape nb x lq x d_model
-    # Pass through linear layers and separate each head to get
-    # outputs of shape nb x lq x h x d_k
+    # Pass Q, K, V through linear layers and separate each head to get
+    # outputs of shape nb x nw x h x dk
     Q = self.wi_q(Q).view(nb, -1, self.h, self.d_k)
     K = self.wi_k(K).view(nb, -1, self.h, self.d_k)
     V = self.wi_v(V).view(nb, -1, self.h, self.d_k)
 
-    # Transpose lq and h for attention dot product
-    # Shape is now nb x h x lq x d_k
+    # Transpose nw and h for attention dot product
+    # Shape is now nb x h x nw x dk
     Q, K, V = Q.transpose(1, 2), K.transpose(1, 2), V.transpose(1, 2)
         
     # Apply Scaled Dot Product Attention
-    # Shape of x is nb x h x lq x d_k
-    x, self.attn = self.attention(Q, K, V, attn_mask = mask, attn_dropout = self.dropout)
+    # Shape of x is nb x h x nw x dk
+    x, self.attn = self.sdpa(Q, K, V, attn_mask = mask, attn_dropout = self.dropout)
 
-    # Transpose nb and h dimensions and concatenate all heads together into 
-    # a single unit of dimension h x d_k = d_model 
+    # Transpose h and nw dimensions and concatenate all heads together into 
+    # a single unit of dimension nb x nw x d_model 
     x = x.transpose(1, 2).contiguous().view(nb, -1, self.h * self.d_k)
 
-    # Apply final linear layer and dropout
+    # Apply final linear layer and dropout to return final MHA output of shape (nb x nw x d_model)
     x = self.dropout(self.fc(x))
     
     return x

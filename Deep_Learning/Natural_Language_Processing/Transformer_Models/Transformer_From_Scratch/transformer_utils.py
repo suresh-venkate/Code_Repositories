@@ -55,6 +55,7 @@ class PositionalEncoding(nn.Module):
       """
       Arguments: d_model = Size of the embedding vector
       dropout: Dropout value to use at the output of this layer
+      max_posns: Maximum number of positions (words) that can be fed to this layer
       """
       super(PositionalEncoding, self).__init__()
       self.dropout = nn.Dropout(p = dropout)
@@ -67,8 +68,17 @@ class PositionalEncoding(nn.Module):
       self.register_buffer('pe', pe) # Register 'pe' as a non-model parameter
         
     def forward(self, x):
-      x = x + self.pe[:, :x.size(1)].clone().detach()
-      return self.dropout(x)
+        """
+        Arguments:
+          x: Input tensor of shape [nb, nw, d_model], where 
+             nb = batch size
+             nw = number of words (positions) in the input
+             d_model = size of input embeddings
+        Returns:
+            x: (Input tensor + positional embeddings) of shape [nb, nw, d_model]
+        """        
+        x = x + self.pe[:, :x.size(1)].clone().detach()
+        return self.dropout(x)
     
 ### Class: ScaledDotProductAttention
 class ScaledDotProductAttention(nn.Module):
@@ -212,13 +222,23 @@ class AddAndNorm(nn.Module):
   """
   Add a residual connection followed by a layer norm. (Ref: Section 5.4, Residual Dropout)
   """
-  def __init__(self, size, dropout):
+  def __init__(self, size):
+    """
+    Arguments:
+        size: Size to use for LayerNorm layer. Will be set to d_model
+    """
     super(AddAndNorm, self).__init__()
     self.norm = nn.LayerNorm(size, eps = 1e-6)
-    self.dropout = nn.Dropout(dropout)
+    #self.dropout = nn.Dropout(dropout)
     
   def forward(self, x, sublayer):
-    return x + self.dropout(sublayer(self.norm(x)))
+    """
+    Arguments:
+        x: Input signal to AddAndNorm Layer of shape [nb, nw, d_model]
+        sublayer: Layer through which x is passed before doing Add-and-Norm
+    """
+    #return x + self.dropout(sublayer(self.norm(x)))
+    return self.norm(x + sublayer((x)))
 
 ### Class: EncoderLayer 
 class EncoderLayer(nn.Module):

@@ -201,9 +201,9 @@ class PositionwiseFeedForward(nn.Module):
   """
   def __init__(self, d_model, d_ff, pwff_dropout = 0.1):
     """
-    Arguments: 
-      d_model: Dimensionality of input and output of PWFFN layer
-      d_ff: Dimension of hidden layer
+    Arguments:  
+      d_model: Dimensionality of input and output of PWFFN layer (512 in Transformer Paper)
+      d_ff: Dimension of hidden layer (2048 in Transformer Paper)
       pwff_dropout: Dropout value to use for position wise feedforward layers
     """
     super(PositionwiseFeedForward, self).__init__()
@@ -213,8 +213,12 @@ class PositionwiseFeedForward(nn.Module):
     self.dropout = nn.Dropout(pwff_dropout)
 
   def forward(self, x):
-    x = self.relu(self.fc_1(x))
-    x = self.dropout(self.fc_2(x))
+    """
+    Arguments:
+        x: Input tensor of shape [nb, nw, d_model]
+    """
+    x = self.relu(self.fc_1(x)) # Intermediate output
+    x = self.dropout(self.fc_2(x)) # Final output of shape [nb, nw, d_model]
     return x
 
 ### Class: AddAndNorm    

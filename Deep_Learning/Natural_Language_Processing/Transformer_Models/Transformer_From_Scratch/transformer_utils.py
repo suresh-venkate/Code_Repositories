@@ -262,8 +262,8 @@ class EncoderLayer(nn.Module):
     super(EncoderLayer, self).__init__()
     self.MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
     self.PWFFN = PositionwiseFeedForward(d_model, d_ff, pwff_dropout)
-    self.addandnorm_MHA = AddAndNorm(d_model, attn_dropout)
-    self.addandnorm_PWFFN = AddAndNorm(d_model, pwff_dropout)
+    self.addandnorm_MHA = AddAndNorm(d_model)
+    self.addandnorm_PWFFN = AddAndNorm(d_model)
 
   def forward(self, x, mask):
     x = self.addandnorm_MHA(x, lambda x: self.MHA_unit(x, x, x, mask))

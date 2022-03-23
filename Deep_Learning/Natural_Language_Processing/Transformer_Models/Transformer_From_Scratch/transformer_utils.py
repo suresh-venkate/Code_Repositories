@@ -250,7 +250,7 @@ class EncoderLayer(nn.Module):
   Single Encoder Unit comprising of a multi-head-attention unit with add_and_norm followed by
   a position-wise-feed-forward-network with add_and_norm (Ref: Section 3.1, Encoder, Fig.1 left side)
   """
-  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout):
+  def __init__(self, d_model, h, d_ff, attn_dropout = 0, pwff_dropout = 0):
     """
     Arguments:
       d_model: Size of input embeddings    
@@ -265,7 +265,7 @@ class EncoderLayer(nn.Module):
     self.addandnorm_MHA = AddAndNorm(d_model)
     self.addandnorm_PWFFN = AddAndNorm(d_model)
 
-  def forward(self, x, mask):
+  def forward(self, x, mask = None):
     x = self.addandnorm_MHA(x, lambda x: self.MHA_unit(x, x, x, mask))
     x = self.addandnorm_PWFFN(x, self.PWFFN)
     return x

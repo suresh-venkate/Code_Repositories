@@ -295,7 +295,7 @@ class Encoder(nn.Module):
     self.enclayer_stack = clones(self.enclayer, N)
     self.norm = nn.LayerNorm(d_model, eps = 1e-6)
         
-  def forward(self, x, mask):
+  def forward(self, x, mask = None):
     """
     Arguments:
         x: Input signal to Encoder of shape [nb, nw, d_model]

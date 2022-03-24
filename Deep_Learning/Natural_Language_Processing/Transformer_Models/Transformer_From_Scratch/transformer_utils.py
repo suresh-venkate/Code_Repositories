@@ -312,7 +312,7 @@ class DecoderLayer(nn.Module):
   Single Decoder Unit comprising of two multi-head-attention units with add_and_norm followed by
   a position-wise-feed-forward-network with add_and_norm (Ref: Section 3.1, Decoder, Fig.1 right side)
   """
-  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout):
+  def __init__(self, d_model, h, d_ff, attn_dropout, pwff_dropout):
     """
     Arguments:
       d_model: Size of input embeddings    
@@ -322,18 +322,23 @@ class DecoderLayer(nn.Module):
       pwff_dropout: Dropout value to use for position wise feedforward layers
     """    
     super(DecoderLayer, self).__init__()
-    #self.size = d_model
-    self.self_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
-    self.src_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout)
-    self.PWFFN = PositionwiseFeedForward(d_model, d_ff, pwff_dropout)
+    self.self_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout) # Self-attention unit in decoder layer
+    self.enc_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout) # Encoder-Decoder attention unit in decoder layer
+    self.PWFFN = PositionwiseFeedForward(d_model, d_ff, pwff_dropout) # PWFF layer
     self.addandnorm_self_MHA = AddAndNorm(d_model, attn_dropout)
-    self.addandnorm_src_MHA = AddAndNorm(d_model, attn_dropout)
+    self.addandnorm_enc_MHA = AddAndNorm(d_model, attn_dropout)
     self.addandnorm_PWFFN = AddAndNorm(d_model, pwff_dropout)
  
-  def forward(self, x, memory, src_mask, tgt_mask):
-    m = memory
-    x = self.addandnorm_self_MHA(x, lambda x: self.self_MHA_unit(x, x, x, tgt_mask))
-    x = self.addandnorm_src_MHA(x, lambda x: self.src_MHA_unit(x, m, m, src_mask))      
+  def forward(self, dec_inp, enc_out, self_attn_mask = None, enc_dec_attn_mask = None):
+    """
+    Arguments:
+        x: Input signal to decoder (fed back from output of decoder) of shape [nb, nw, d_model]
+        enc_out: Output from encoder that will be used as K, V inputs for the encoder-decoder attention layer
+        self_attn_mask: 
+        enc_dec_attn_mask:    
+    """
+    x = self.addandnorm_self_MHA(x, lambda x: self.self_MHA_unit(x, x, x, self_attn_mask))
+    x = self.addandnorm_enc_MHA(x, lambda x: self.enc_MHA_unit(x, enc_out, enc_out, enc_dec_attn_mask))      
     x = self.addandnorm_PWFFN(x, self.PWFFN)
     return x   
 

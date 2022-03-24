@@ -266,6 +266,11 @@ class EncoderLayer(nn.Module):
     self.addandnorm_PWFFN = AddAndNorm(d_model)
 
   def forward(self, x, mask = None):
+    """
+    Arguments:
+        x: Input signal to EncoderLayer of shape [nb, nw, d_model]
+        mask:
+    """    
     x = self.addandnorm_MHA(x, lambda x: self.MHA_unit(x, x, x, mask))
     x = self.addandnorm_PWFFN(x, self.PWFFN)
     return x
@@ -275,26 +280,31 @@ class Encoder(nn.Module):
   """
   Encoder is a stack of N EncoderLayers
   """
-  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout, N):
+  def __init__(self, d_model, h, d_ff, attn_dropout, pwff_dropout, N):
     """
     Arguments:
       d_model: Size of input embeddings    
       h: Number of parallel attention layers (heads)
       attn_dropout: dropout value to use in MHA module
-      d_ff: Dimension of hidden layer
+      d_ff: Dimension of hidden layertb_cntrl_top in position wise feedforward layerf
       pwff_dropout: Dropout value to use for position wise feedforward layers    
       N: Number of EncoderLayers in the Encoder stack
     """
     super(Encoder, self).__init__()
-    self.enclayer = EncoderLayer(d_model, h, attn_dropout, d_ff, pwff_dropout)
+    self.enclayer = EncoderLayer(d_model, h, d_ff, attn_dropout = 0, pwff_dropout = 0)
     self.enclayer_stack = clones(self.enclayer, N)
     self.norm = nn.LayerNorm(d_model, eps = 1e-6)
         
   def forward(self, x, mask):
+    """
+    Arguments:
+        x: Input signal to Encoder of shape [nb, nw, d_model]
+        mask:
+    """        
     x = self.norm(x)
     for layer in self.enclayer_stack:
       x = layer(x, mask)
-    return self.norm(x)
+    return x
 
 ### Class: DecoderLayer
 class DecoderLayer(nn.Module):

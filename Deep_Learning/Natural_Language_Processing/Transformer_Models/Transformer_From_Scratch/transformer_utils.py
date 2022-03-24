@@ -325,11 +325,11 @@ class DecoderLayer(nn.Module):
     self.self_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout) # Self-attention unit in decoder layer
     self.enc_MHA_unit = MultiHeadAttention(h, d_model, attn_dropout) # Encoder-Decoder attention unit in decoder layer
     self.PWFFN = PositionwiseFeedForward(d_model, d_ff, pwff_dropout) # PWFF layer
-    self.addandnorm_self_MHA = AddAndNorm(d_model, attn_dropout)
-    self.addandnorm_enc_MHA = AddAndNorm(d_model, attn_dropout)
-    self.addandnorm_PWFFN = AddAndNorm(d_model, pwff_dropout)
+    self.addandnorm_self_MHA = AddAndNorm(d_model)
+    self.addandnorm_enc_MHA = AddAndNorm(d_model)
+    self.addandnorm_PWFFN = AddAndNorm(d_model)
  
-  def forward(self, dec_inp, enc_out, self_attn_mask = None, enc_dec_attn_mask = None):
+  def forward(self, x, enc_out, self_attn_mask = None, enc_dec_attn_mask = None):
     """
     Arguments:
         x: Input signal to decoder (fed back from output of decoder) of shape [nb, nw, d_model]

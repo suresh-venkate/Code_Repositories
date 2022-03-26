@@ -373,7 +373,7 @@ class Decoder(nn.Module):
     x = self.norm(x)
     for layer in self.declayer_stack:
       x = layer(x, enc_out, self_attn_mask, enc_dec_attn_mask)
-    return self.norm(x)
+    return x
 
 ### Class: Generator        
 class Generator(nn.Module):

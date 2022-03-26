@@ -345,27 +345,34 @@ class DecoderLayer(nn.Module):
 ### Class: Decoder
 class Decoder(nn.Module):
   """
-  Decoder is a stack of N DecoderLayers
+  Decoder is a stack of N DecoderLayers (Ref: Section 3.1, Decoder, Fig.1 right side)
   """
-  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout, N):
+  def __init__(self, d_model, h, d_ff, attn_dropout, pwff_dropout, N):
     """
     Arguments:
       d_model: Size of input embeddings    
       h: Number of parallel attention layers (heads)
+      d_ff: Dimension of hidden layer in position wise feedforward layer      
       attn_dropout: dropout value to use in MHA module
-      d_ff: Dimension of hidden layer
       pwff_dropout: Dropout value to use for position wise feedforward layers    
       N: Number of DecoderLayers in the Decoder stack
     """
     super(Decoder, self).__init__()
-    self.declayer = DecoderLayer(d_model, h, attn_dropout, d_ff, pwff_dropout)
+    self.declayer = DecoderLayer(d_model, h, d_ff, attn_dropout, pwff_dropout)
     self.declayer_stack = clones(self.declayer, N)
     self.norm = nn.LayerNorm(d_model, eps = 1e-6)    
         
-  def forward(self, x, memory, src_mask, tgt_mask):
+  def forward(self, x, enc_out, self_attn_mask = None, enc_dec_attn_mask = None):
+    """
+    Arguments:
+        x: Input signal to decoder (fed back from output of decoder) of shape [nb, nw, d_model]
+        enc_out: Output from encoder that will be used as K, V inputs for the encoder-decoder attention layer
+        self_attn_mask: 
+        enc_dec_attn_mask:
+    """           
     x = self.norm(x)
     for layer in self.declayer_stack:
-      x = layer(x, memory, src_mask, tgt_mask)
+      x = layer(x, enc_out, self_attn_mask, enc_dec_attn_mask)
     return self.norm(x)
 
 ### Class: Generator        

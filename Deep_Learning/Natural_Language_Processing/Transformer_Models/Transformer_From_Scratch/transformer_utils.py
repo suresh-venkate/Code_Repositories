@@ -433,20 +433,21 @@ class EncoderDecoder(nn.Module):
     return self.decode(tgt, self.encode(src, src_mask), src_mask, enc_dec_attn_mask)
     
 ### Function: make_model
-def make_model(src_vocab, tgt_vocab, N=6, 
-               d_model=512, d_ff=2048, h=8, dropout=0.1):
-    "Helper: Construct a model from hyperparameters."
+def make_model(src_vocab, tgt_vocab, N=6, d_model=512, d_ff=2048, h=8, dropout=0.0):
     c = copy.deepcopy
-    position = PositionalEncoding(d_model, dropout)
-    model = EncoderDecoder(
-        Encoder(d_model, h, dropout, d_ff, dropout, N),
-        Decoder(d_model, h, dropout, d_ff, dropout, N),
-        nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
-        nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
-        Generator(d_model, tgt_vocab))    
-    # This was important from their code. 
+    pe_layer = PositionalEncoding(d_model, dropout)
+    enc_layer = Encoder(d_model, h, d_ff, dropout, dropout, N)
+    dec_layer = Decoder(d_model, h, d_ff, dropout, dropout, N)
+    src_emb = Embeddings(d_model, src_vocab)
+    tgt_emb = Embeddings(d_model, tgt_vocab)
+    src_emb_layer = nn.Sequential(src_emb, c(pe_layer)) 
+    tgt_emb_layer = nn.Sequential(tgt_emb, c(pe_layer)) 
+    gen_layer = Generator(d_model, tgt_vocab)
+    model = EncoderDecoder(enc_layer, dec_layer, src_emb_layer, tgt_emb_layer, gen_layer)    
+
     # Initialize parameters with Glorot / fan_avg.
     for p in model.parameters():
         if p.dim() > 1:
             nn.init.xavier_uniform(p)
+    
     return model    

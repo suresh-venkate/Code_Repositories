@@ -378,7 +378,7 @@ class Decoder(nn.Module):
 ### Class: Generator        
 class Generator(nn.Module):
   """
-  Final output layer (linear + softmax) to be added after the decoder output
+  Final output layer (linear + softmax) to be added after the decoder output (Ref: Section 3.1, Decoder, Fig.1 right side)
   """
   def __init__(self, d_model, vocab):
     """
@@ -391,6 +391,12 @@ class Generator(nn.Module):
     self.smax = nn.LogSoftmax(dim = -1)
 
   def forward(self, x):
+    """
+    Arguments:
+        x: Input signal to Generator of shape [nb, nw, d_model]    
+    Returns:
+        Output log-probabilities of shape [nb, nw, vocab]
+    """
     x = self.proj(x)
     x = self.smax(x)
     return x
@@ -398,7 +404,7 @@ class Generator(nn.Module):
 ### Class: EncoderDecoder
 class EncoderDecoder(nn.Module):
   """
-  Overall Encoder + Decoder.
+  Overall Encoder + Decoder. (Ref: Section 3.1, Fig.1)
   """
   def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
     """
@@ -407,7 +413,7 @@ class EncoderDecoder(nn.Module):
         decoder: Decoder instance
         src_embed: Source embeddings (along with positional encoding) to pass to encoder 
         tgt_embed: Target embeddings (along with positional encoding) to pass to decoder
-        generator: Output generator instance (Linear + Softmax)
+        generator: Output generator instance (Linear + Log-Softmax)
     """
     super(EncoderDecoder, self).__init__()
     self.encoder = encoder
@@ -416,15 +422,15 @@ class EncoderDecoder(nn.Module):
     self.tgt_embed = tgt_embed
     self.generator = generator
     
-  def encode(self, src, src_mask):
+  def encode(self, src, src_mask = None):
     return self.encoder(self.src_embed(src), src_mask)
       
-  def decode(self, memory, src_mask, tgt, tgt_mask):
-    return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
+  def decode(self, tgt, enc_out, self_attn_mask = None, enc_dec_attn_mask = None):
+    return self.decoder(self.tgt_embed(tgt), enc_out, self_attn_mask, enc_dec_attn_mask)
       
-  def forward(self, src, tgt, src_mask, tgt_mask):
+  def forward(self, src, tgt, src_mask, enc_dec_attn_mask):
     "Take in and process masked src and target sequences."
-    return self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask)
+    return self.decode(tgt, self.encode(src, src_mask), src_mask, enc_dec_attn_mask)
     
 ### Function: make_model
 def make_model(src_vocab, tgt_vocab, N=6, 

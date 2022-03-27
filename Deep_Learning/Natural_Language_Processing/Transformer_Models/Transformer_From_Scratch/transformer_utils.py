@@ -428,7 +428,7 @@ class EncoderDecoder(nn.Module):
   def decode(self, tgt, enc_out, self_attn_mask = None, enc_dec_attn_mask = None):
     return self.decoder(self.tgt_embed(tgt), enc_out, self_attn_mask, enc_dec_attn_mask)
       
-  def forward(self, src, tgt, src_mask, enc_dec_attn_mask):
+  def forward(self, src, tgt, src_mask = None, enc_dec_attn_mask = None):
     "Take in and process masked src and target sequences."
     return self.decode(tgt, self.encode(src, src_mask), src_mask, enc_dec_attn_mask)
     

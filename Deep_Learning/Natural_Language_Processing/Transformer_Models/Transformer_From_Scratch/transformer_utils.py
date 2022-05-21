@@ -345,33 +345,40 @@ class DecoderLayer(nn.Module):
 ### Class: Decoder
 class Decoder(nn.Module):
   """
-  Decoder is a stack of N DecoderLayers
+  Decoder is a stack of N DecoderLayers (Ref: Section 3.1, Decoder, Fig.1 right side)
   """
-  def __init__(self, d_model, h, attn_dropout, d_ff, pwff_dropout, N):
+  def __init__(self, d_model, h, d_ff, attn_dropout, pwff_dropout, N):
     """
     Arguments:
       d_model: Size of input embeddings    
       h: Number of parallel attention layers (heads)
+      d_ff: Dimension of hidden layer in position wise feedforward layer      
       attn_dropout: dropout value to use in MHA module
-      d_ff: Dimension of hidden layer
       pwff_dropout: Dropout value to use for position wise feedforward layers    
       N: Number of DecoderLayers in the Decoder stack
     """
     super(Decoder, self).__init__()
-    self.declayer = DecoderLayer(d_model, h, attn_dropout, d_ff, pwff_dropout)
+    self.declayer = DecoderLayer(d_model, h, d_ff, attn_dropout, pwff_dropout)
     self.declayer_stack = clones(self.declayer, N)
     self.norm = nn.LayerNorm(d_model, eps = 1e-6)    
         
-  def forward(self, x, memory, src_mask, tgt_mask):
+  def forward(self, x, enc_out, self_attn_mask = None, enc_dec_attn_mask = None):
+    """
+    Arguments:
+        x: Input signal to decoder (fed back from output of decoder) of shape [nb, nw, d_model]
+        enc_out: Output from encoder that will be used as K, V inputs for the encoder-decoder attention layer
+        self_attn_mask: 
+        enc_dec_attn_mask:
+    """           
     x = self.norm(x)
     for layer in self.declayer_stack:
-      x = layer(x, memory, src_mask, tgt_mask)
-    return self.norm(x)
+      x = layer(x, enc_out, self_attn_mask, enc_dec_attn_mask)
+    return x
 
 ### Class: Generator        
 class Generator(nn.Module):
   """
-  Final output layer (linear + softmax) to be added after the decoder output
+  Final output layer (linear + softmax) to be added after the decoder output (Ref: Section 3.1, Decoder, Fig.1 right side)
   """
   def __init__(self, d_model, vocab):
     """
@@ -384,6 +391,12 @@ class Generator(nn.Module):
     self.smax = nn.LogSoftmax(dim = -1)
 
   def forward(self, x):
+    """
+    Arguments:
+        x: Input signal to Generator of shape [nb, nw, d_model]    
+    Returns:
+        Output log-probabilities of shape [nb, nw, vocab]
+    """
     x = self.proj(x)
     x = self.smax(x)
     return x
@@ -391,7 +404,7 @@ class Generator(nn.Module):
 ### Class: EncoderDecoder
 class EncoderDecoder(nn.Module):
   """
-  Overall Encoder + Decoder.
+  Overall Encoder + Decoder. (Ref: Section 3.1, Fig.1)
   """
   def __init__(self, encoder, decoder, src_embed, tgt_embed, generator):
     """
@@ -400,7 +413,7 @@ class EncoderDecoder(nn.Module):
         decoder: Decoder instance
         src_embed: Source embeddings (along with positional encoding) to pass to encoder 
         tgt_embed: Target embeddings (along with positional encoding) to pass to decoder
-        generator: Output generator instance (Linear + Softmax)
+        generator: Output generator instance (Linear + Log-Softmax)
     """
     super(EncoderDecoder, self).__init__()
     self.encoder = encoder
@@ -409,31 +422,32 @@ class EncoderDecoder(nn.Module):
     self.tgt_embed = tgt_embed
     self.generator = generator
     
-  def encode(self, src, src_mask):
+  def encode(self, src, src_mask = None):
     return self.encoder(self.src_embed(src), src_mask)
       
-  def decode(self, memory, src_mask, tgt, tgt_mask):
-    return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
+  def decode(self, tgt, enc_out, self_attn_mask = None, enc_dec_attn_mask = None):
+    return self.decoder(self.tgt_embed(tgt), enc_out, self_attn_mask, enc_dec_attn_mask)
       
-  def forward(self, src, tgt, src_mask, tgt_mask):
+  def forward(self, src, tgt, src_mask = None, tgt_mask = None):
     "Take in and process masked src and target sequences."
-    return self.decode(self.encode(src, src_mask), src_mask, tgt, tgt_mask)
+    return self.decode(tgt, self.encode(src, src_mask), tgt_mask, src_mask)
     
 ### Function: make_model
-def make_model(src_vocab, tgt_vocab, N=6, 
-               d_model=512, d_ff=2048, h=8, dropout=0.1):
-    "Helper: Construct a model from hyperparameters."
+def make_model(src_vocab, tgt_vocab, N=6, d_model=512, d_ff=2048, h=8, dropout=0.0):
     c = copy.deepcopy
-    position = PositionalEncoding(d_model, dropout)
-    model = EncoderDecoder(
-        Encoder(d_model, h, dropout, d_ff, dropout, N),
-        Decoder(d_model, h, dropout, d_ff, dropout, N),
-        nn.Sequential(Embeddings(d_model, src_vocab), c(position)),
-        nn.Sequential(Embeddings(d_model, tgt_vocab), c(position)),
-        Generator(d_model, tgt_vocab))    
-    # This was important from their code. 
+    pe_layer = PositionalEncoding(d_model, dropout)
+    enc_layer = Encoder(d_model, h, d_ff, dropout, dropout, N)
+    dec_layer = Decoder(d_model, h, d_ff, dropout, dropout, N)
+    src_emb = Embeddings(d_model, src_vocab)
+    tgt_emb = Embeddings(d_model, tgt_vocab)
+    src_emb_layer = nn.Sequential(src_emb, c(pe_layer)) 
+    tgt_emb_layer = nn.Sequential(tgt_emb, c(pe_layer)) 
+    gen_layer = Generator(d_model, tgt_vocab)
+    model = EncoderDecoder(enc_layer, dec_layer, src_emb_layer, tgt_emb_layer, gen_layer)    
+
     # Initialize parameters with Glorot / fan_avg.
     for p in model.parameters():
         if p.dim() > 1:
             nn.init.xavier_uniform(p)
+    
     return model    
